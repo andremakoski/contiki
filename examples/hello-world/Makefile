@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = hwsensors
+CONTIKI_PROJECT = atividade3
 all: $(CONTIKI_PROJECT)
 
 CONTIKI = ../..
