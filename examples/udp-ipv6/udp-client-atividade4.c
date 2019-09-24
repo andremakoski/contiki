@@ -44,6 +44,10 @@
 #define CONN_PORT     (8802)
 #define MDNS (1)
 #define LED_TOGGLE_REQUEST (0x79)
+#define LED_SET_STATE (0x7A)
+#define LED_GET_STATE (0x7B)
+#define LED_STATE (0x7C)
+
 
 static char buf[MAX_PAYLOAD_LEN];
 
@@ -59,13 +63,61 @@ AUTOSTART_PROCESSES(&resolv_process,&udp_client_process);
 static void
 tcpip_handler(void)
 {
-    char *dados;
+    /*char *dados;
 
     if(uip_newdata()) {
         dados = uip_appdata;
         dados[uip_datalen()] = '\0';
         printf("Response from the server: '%s'\n", dados);
+    }*/
+
+    char i =0;
+
+    if (uip_newdata()) // verifica se novos dados foram recebidos
+    {
+        char * dados=((char*)uip_appdata); // este buffer é padrão do contiki
+        PRINTF("Recebidos %d bytes\n",uip_datalen());
+        switch (dados[0])
+        {
+            case LED_GET_STATE:
+            {
+                buf[0] = LED_STATE;
+                buf[1] = leds_get();
+                uip_ipaddr_copy(&client_conn->ripaddr,&UIP_IP_BUF->srcipaddr);
+                client_conn->rport = UIP_UDP_BUF->destport;
+                uip_udp_packet_send(client_conn,buf,uip_datalen());
+                PRINTF("Enviando state para [");
+                PRINT6ADDR(&client_conn->ripaddr);
+                PRINTF("]:% u\n",UIP_HTONS(client_conn->rport));
+                break;
+            }
+            case LED_SET_STATE:
+            {
+                leds_set(dados[1]);
+                buf[0] = LED_STATE;
+                buf[1] = leds_get();
+                uip_ipaddr_copy(&client_conn->ripaddr,&UIP_IP_BUF->srcipaddr);
+                client_conn->rport = UIP_UDP_BUF->destport;
+                uip_udp_packet_send(client_conn,buf,uip_datalen());
+                PRINTF("Enviando state para [");
+                PRINT6ADDR(&client_conn->ripaddr);
+                PRINTF("]:% u\n",UIP_HTONS(client_conn->rport));
+                break;
+            }
+
+            default:
+            {
+                PRINTF("Comando Invalido:");
+                for(i=0;i<uip_datalen();i++)
+                {
+                    PRINTF("0x%02X",dados[i]);
+                }
+                PRINTF("\n");
+                break ;
+            }
+        }
     }
+    return ;
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -81,7 +133,7 @@ timeout_handler(void)
     PRINTF("Enviando LED_TOGGLE_REQUEST para [");
     PRINT6ADDR(&client_conn->ripaddr);
     PRINTF("]:%u\n", UIP_HTONS(client_conn->rport));
-    uip_udp_packet_send(client_conn, buf, strlen(buf));
+    uip_udp_packet_send(client_conn, buf, sizeof(payload));
 }
 /*---------------------------------------------------------------------------*/
 static void
